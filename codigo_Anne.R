@@ -1,36 +1,66 @@
 # 23/01/2020
-# Tarea integrador: Inteligencia de Negocio y Big Data Analytics
+# Tarea integradora: Inteligencia de Negocio y Big Data Analytics
 # Autora: Sol Represa
 
 
-# Instalación de paquetes
-install.packages("class")
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("randomForest")
-install.packages("caret")
-install.packages("e1071")
+# # # # # # # # # # # # # # # # # # # # # 
+
+## 1) Instalación de paquetes ####
+
+# # # # # # # # # # # # # # # # # # # # # 
 
 
-# Cargamos librerías
+#install.packages("class")
+#install.packages("rpart")
+#install.packages("rpart.plot")
+#install.packages("randomForest")
+#install.packages("caret")
+#install.packages("e1071")
+
+
+# # # # # # # # # # # # # # # # # # # # # 
+
+## 2) Cargamos librerías ####
+
+# # # # # # # # # # # # # # # # # # # # # 
+
 library(ggplot2)
+library (caret)
 
-# Cargamos los datos
-data = read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+
+
+# # # # # # # # # # # # # # # # # # # # # 
+
+## 3) Cargamos los datos  ####
+
+# # # # # # # # # # # # # # # # # # # # # 
+
+
+data <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
                   sep = ",", 
                   header = F, 
-                  col.names = c("age", "type_employer", "fnlwgt",
-                                                       "education", "education_num", "marital", "occupation", "relationship",
-                                                       "race", "sex", "capital_gain", "capital_loss", "hr_per_week", "country",
-                                                       "income"), 
+                  col.names = c("age", "type_employer", "fnlwgt", "education", 
+                                "education_num", "marital", "occupation", "relationship",
+                                "race", "sex", "capital_gain", "capital_loss", "hr_per_week", 
+                                "country", "income"), 
                   fill = FALSE, 
                   strip.white = T)
 
 dim(data)  #dimension de la tabla
-head(data[1:6]) #cabecera de la tabla
-head(data[7:11])
+
+head(data)   #cabecera de la tabla
+head(data[1:6]) 
+head(data, n = 6)
+
+head(data[7:11]) #explorar las primeras filas
+data[7:11]
+
 head(data[12:15])
-summary(data) #resumen de los datos (min, cuartiles, media, max)
+
+tail(data) #final de la tabla
+
+
+summary(data) #resumen de los datos. Es distinto si es cuantitativo y cualitativo
 str(data) #Estructura de la tabla y sus datos
 
 
@@ -38,14 +68,23 @@ str(data) #Estructura de la tabla y sus datos
 data2 <- data
 
 
-## LIMPIEZA DE DATOS ####
+# # # # # # # # # # # # # # # # # # # # # 
 
-# Quitamos las columnas que no nos interesan (education_num , fnlwgt)
+## 4) Limpieza de los datos ####
 
-# Opción 1
+# # # # # # # # # # # # # # # # # # # # # 
+
+
+# Queremos quitar las columnas que no nos interesan: "education_num" , "fnlwgt"
+
+# Opción 1  # Decimos que esas culmunas son NuLL
 data[["education_num"]] = NULL
 data[["fnlwgt"]] = NULL
 
+
+# Opción 2   # Decimos que queremos la tabla sin esas columnas
+names(data)
+data <- data[ -c(3, 5)]
 
 
 # Comprobamos que se han eliminado las variables indicadas
@@ -53,13 +92,14 @@ head(data)
 
 
 
+## 4.1 Reducir dimensiones de las variables ####
+
+# Queremos reducir la profundidad de algunas de las variables
 
 
-## REDUCIR DIMENSIONES DE LAS VARIABLES ####
-# Reducir la profundidad de las variables: "education, occupation y country"
+## Primero se convierten las variables para manipularlas adecuadamente
+# ¿Cómo estaban? ¿A qué pasan?
 
-
-## Se convierten algunas variables para manipularlas adecuadamente
 data$type_employer = as.character(data$type_employer)
 data$occupation = as.character(data$occupation)
 data$country = as.character(data$country)
@@ -67,7 +107,12 @@ data$education = as.character(data$education)
 data$race = as.character(data$race)
 data$marital = as.character(data$marital)
 
-## En tipo de empleador Se agrupan algunas variables que tienen poca frecuencia y son similares
+
+# Manejo de expresiones regulares en R
+# VER: https://www.r-bloggers.com/demystifying-regular-expressions-in-r/
+
+# type_employer
+# En tipo de empleador se agrupan algunas variables que tienen poca frecuencia y son similares
 data$type_employer = gsub("^Federal-gov","Federal-Govt",data$type_employer)
 data$type_employer = gsub("^Local-gov","Other-Govt",data$type_employer)
 data$type_employer = gsub("^State-gov","Other-Govt",data$type_employer)
@@ -182,8 +227,7 @@ data$sex = factor(data$sex)
 data$relationship = factor(data$relationship)
 
 ## Se recodifica la variable a predecir a S/N
-data$income = as.factor(ifelse(data$income==data$income[1],"N","S"))
-
+data$income = as.factor(ifelse(data$income == data$income[1],"N","S"))
 
 
 #Corroborar que todo este bien:
@@ -191,73 +235,85 @@ as.data.frame(table(data$country))  # table() conteo de frecuencia
 as.data.frame(table(data2$country))
 
 
-## DISCRETIZACION DE VARIABLES ####
+## 4.2 Discretización de las variables ####
+
 # La función cut divide el rango de x en intervalos y codifica los valores en x según el
 # intervalo que caen. El intervalo más a la izquierda corresponde al nivel uno, 
 # el siguiente más a la izquierda al nivel dos y así sucesivamente.
 
-data[["capital_gain"]] <- ordered(cut(data$capital_gain,c(-Inf, 0,
-                                                          median(data[["capital_gain"]]
-                                                                 [data[["capital_gain"]] >0]),
-                                                          Inf)),labels = c("None", "Low", "High"))
-
-data[["capital_loss"]] <- ordered(cut(data$capital_loss,c(-Inf, 0,
-                                                          median(data[["capital_loss"]]
-                                                                 [data[["capital_loss"]] >0]), Inf)), 
+data[["capital_gain"]] <- ordered(cut(data$capital_gain,
+                                      c(-Inf, 0, 
+                                        median(data[["capital_gain"]][data[["capital_gain"]] >0]),
+                                        Inf)),
                                   labels = c("None", "Low", "High"))
 
-# Se muestra la distribución de valores
-table(data[,"capital_gain"])
+data[["capital_loss"]] <- ordered(cut(data$capital_loss,
+                                      c(-Inf, 0, 
+                                        median(data[["capital_loss"]][data[["capital_loss"]] >0]), 
+                                        Inf)), 
+                                  labels = c("None", "Low", "High"))
+
+
+table(data[,"capital_gain"])  # Se muestra la distribución de valores
 table(data[,"capital_loss"])
 
-
-## La edad y los horas por semana se reescalan, centradas y reducidas
-data$age = scale(data$age)
+data$age = scale(data$age)  ## La edad y los horas por semana se reescalan, centradas y reducidas
 data$hr_per_week = scale(data$hr_per_week)
 
-# Resumen de las variables
-summary(data$age)
+summary(data$age) # Resumen de las variables
 summary(data$hr_per_week)
 
-# Suma la cantidad de nulos
-sum(is.na(data))
 
-# Visualizamos un recunto de la variable country
-as.data.frame(table(data$country))
 
-# Reemplazamos "?" con null y posteriormente los contmos
+### 4.3 Tratamiento de los valores NULL ####
 
-## Opción 1
+sum(is.na(data)) # Suma la cantidad de nulos
+
+as.data.frame(table(data$country)) # Visualizamos un recuento de la variable country
+
+### EJERCICIO 1 ####
+
+## Opción 1  # Reemplazamos "?" con null y posteriormente los contamos
 is.na(data) = data =='?'
 is.na(data) = data ==' ?'
 
+data = na.omit(data)  # Se eliminan los registros con datos nulos
 
-# Se eliminan los registros con datos nulos
-data = na.omit(data)
 
-# Opción 2
-ind <- which(data2$type_employer == "?")  #repetirlo para cada columna que tenga "?"
+# Opción 2  # buscamos los "?" y nos quedamos sin esas filas
+ind <- which(data2$type_employer == "?")  
 data <- data[-ind,]
 
+# ATENCIóN: repetirlo para cada columna que tenga "?"
 
-# Opción 3
-data[data == "?"] <- NA
+
+# Opción 3  # Cambiamos los valores ? por NA y luego usamos la función complete.cases
+data[data == "?" & data == " ?"] <- NA
 data <- data[complete.cases(data),]
 
 
-
-# Se evalua la cantidad de resgistros eliminados
-dim(data)
+dim(data)  # Evaluamos la cantidad de registros eliminados
 dim(data2)
 dim(data2)[1]-dim(data)[1]   # ¿cuantos datos faltaban?
 (dim(data2)[1]-dim(data)[1])/dim(data2)[1]*100  #¿Qué % representan?
 
 
-## FASE MODELADO ####
-# Split aleatorio de los datos para definir conjunto de entrenamiento / prueba
+# # # # # # # # # # # # # # # # # # # # # 
+
+## 5) Fase Modelado ####
+
+# # # # # # # # # # # # # # # # # # # # # 
+
+# 5.1 Tomamos una muestra aleatoria de los datos ####
+# Realizamos un split aleatorio de los datos para definir conjunto de entrenamiento / prueba
+
 set.seed(1234)
 
-ind <- sample(2, nrow(data), replace=TRUE, prob = c(0.7, 0.3))
+ind <- sample(2, 
+              nrow(data), 
+              replace=TRUE, 
+              prob = c(0.7, 0.3))
+
 trainData <- data[ind == 1,]
 dim(trainData)[1]/dim(data)[1]  #Corroboramos que tenemos ~70%
 
@@ -265,25 +321,34 @@ testData <- data[ind==2, ]
 dim(testData)[1]/dim(data)[1]  #Corroboramos que tenemos ~30%
 
 
+# 5.2 Visualización de los datos####
 
-## EJERCICIO 2 ##
+## EJERCICIO 2 ####
 # Gráfica que contenga las dos variables cuantitativas age y hr_per_week 
 # y el segundo que esté asociado a una variable categórica.
 
+plot(data$hr_per_week, data$age)
+plot(data$hr_per_week, data$age, 
+     xlab = "Hr per week", ylab = "Age",
+     col = "red")
 
-ggplot(data, aes( y= age, x = hr_per_week, col = capital_gain)) + 
+
+ggplot(data, aes( y = age, x = hr_per_week, col = capital_gain)) + 
   geom_point() + 
   theme_bw()
 
+
+boxplot( hr_per_week ~ sex, data = data )
+boxplot( age ~ sex, data = data )
+
 ggplot(data, aes( x= capital_gain, y= age, fill = sex)) + 
-  geom_bar(stat = "identity", position = "dodge") + 
+  geom_boxplot() + 
   theme_bw() 
 
 
+# 5.3 Modelamos los datos ####
 
-
-
-## EJERCICIO 3 ###
+## EJERCICIO 3 ####
 # Aplicar un modelo KNN 
 # utilizando como variables en imput la edad, las horas trabajadas por semana y el sexo. 
 # Recordad que para poder añadir el sexo tendréis que expresarla como variable
@@ -297,6 +362,8 @@ data$sex <- as.character(data$sex)
 data[which(data$sex == "Male"), 8] <- 0
 data[which(data$sex == "Female"), 8] <- 1
 
+
+### KNN ####
 
 # Ver: https://rpubs.com/njvijay/16444
 library (caret)
@@ -313,28 +380,35 @@ knnFit <- train(capital_gain ~ age + hr_per_week + sex,
 
 knnFit #¿Qué dio?
 plot(knnFit) 
-knnPredict <- predict(knnFit, newdata = testData )
-confusionMatrix(knnPredict, testData$capital_gain)   #ESTUDIAR mejor las salidas del modelo
 
 
+
+#### ARBOL DE DECISION ####
+# VER: https://rpubs.com/jboscomendoza/arboles_decision_clasificacion
 
 # EJERCICIO 4
-# Arbol de decisión ####
-# https://rpubs.com/jboscomendoza/arboles_decision_clasificacion
 
-library(rpart)
-arbol_1 <- rpart(capital_gain ~ age + hr_per_week + sex, data = trainData)
-arbol_1
-
+# library(rpart)
+# arbol_1 <- rpart(capital_gain ~ age + hr_per_week + sex, data = trainData)
 #Ver grafica con rpart del arbol
 
-arbolPredict <- predict(arbol_1, newdata = testData, type = "class")
-confusionMatrix(arbolPredict, testData$capital_gain)  
+
+arbol_1 <- train(capital_gain ~ age + hr_per_week + sex, 
+                data = trainData, 
+                method = "rpart", 
+                trControl = ctrl, 
+                # preProcess = c("center","scale"), 
+                tuneLength = 20)
+
+arbol_1
 
 
+
+
+
+#### RANDOM FOREST ####
 
 # EJERCICIO 5
-# Random Forest
 library(randomForest)
 set.seed(400)
 
@@ -342,9 +416,61 @@ ctrl <- trainControl( method = "repeatedcv", repeats = 5) # Metodo de cross vali
 RFFit <- train(capital_gain ~ age + hr_per_week + sex, 
                 data = trainData, 
                 method = "rf", 
-                trControl = ctrl, 
-                # preProcess = c("center","scale"), 
-                tuneLength = 20)
+               # preProcess = c("center","scale"), 
+                trControl = ctrl) 
+
 
 RFFit
 plot(RFFit)
+
+
+
+### 5.4. Seleccionar el mejor modelo ####
+
+# Ejercicio 6 ###
+results <- resamples(list( kNN=knnFit, arbol=arbol_1, RF=RFFit)) # juntamos los modelos
+
+summary(results)  #analizamos las distribuciones
+bwplot(results) # boxplots de los results
+dotplot(results) #dotplot
+
+
+
+## Visualizar matrices de confución
+
+knnPredict <- predict(knnFit, newdata = testData )
+confusionMatrix(knnPredict, testData$capital_gain)   #ESTUDIAR mejor las salidas del modelo
+
+arbolPredict <- predict(arbol_1, newdata = testData)
+confusionMatrix(arbolPredict, testData$capital_gain)  
+
+RFPredict <- predict(RFFit, newdata = testData)
+confusionMatrix(RFPredict, testData$capital_gain)  
+
+
+
+# # # # # # # # # # # # # # # # # # # # # 
+
+# Clusters
+
+# # # # # # # # # # # # # # # # # # # # # 
+
+# VER: https://www.datanovia.com/en/lessons/k-means-clustering-in-r-algorith-and-practical-examples/
+
+data3 = data2[, c("capital_gain","capital_loss","hr_per_week","age")]
+
+# EJERCICIO 6
+# Realice una segmentación kmeans para 5 clusters
+km <- kmeans(data3, centers = 5, iter.max = 10, nstart = 1)
+print(km)
+
+km$size  #tamaño de cluster
+
+
+# EJERCICIO 7
+# Describa los perfiles de clientes representados por los clusters
+
+
+# EJERCICIO 8
+#Para poder interpretar los clusters es habitual representarlos mediante el valor medio de las variables
+aggregate(data3, by = list(cluster=km$cluster), mean)
